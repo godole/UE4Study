@@ -4,6 +4,7 @@
 
 #include "ArenaBattle.h"
 #include "GameFramework/Actor.h"
+#include "GameFrameWork/RotatingMovementComponent.h"
 #include "Fountain.generated.h"
 
 
@@ -19,6 +20,8 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+	virtual void PostInitializeComponents() override;
+	//virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 public:	
 	// Called every frame
@@ -35,4 +38,10 @@ public:
 
 	UPROPERTY()
 		UParticleSystemComponent* Splash;
+private:
+	UPROPERTY(EditAnywhere, Category = Stat, Meta = (AllowPrivateAccess = true))
+	float RotateSpeed;
+
+	UPROPERTY(VisibleAnywhere)
+	URotatingMovementComponent* Movement;
 };
