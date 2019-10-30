@@ -2,6 +2,7 @@
 
 
 #include "ABCharacter.h"
+#include "ABAnimInstance.h"
 
 // Sets default values
 AABCharacter::AABCharacter()
@@ -9,40 +10,67 @@ AABCharacter::AABCharacter()
  	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
-	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SPRINGARM"));
-	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("CAMERA"));
+	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
+	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 
-	SpringArm->SetupAttachment(GetCapsuleComponent());
+	SpringArm->SetupAttachment(RootComponent);
 	Camera->SetupAttachment(SpringArm);
 
-	SpringArm->TargetArmLength = 400.0f;
-	SpringArm->SetRelativeRotation(FRotator(-15.0f, 0.0f, 0.0f));
+	GetMesh()->SetRelativeLocationAndRotation(FVector(0.f, 0.f, -88.f), FRotator(0.f, -90.f, 0.f));
 
-	static ConstructorHelpers::FObjectFinder<USkeletalMesh> SK_CARDBOARD(TEXT("/Game/InfinityBladeWarriors/Character/CompleteCharacters/SK_CharM_FrostGiant.SK_CharM_FrostGiant"));
+	SpringArm->TargetArmLength = 400.f;
+	SpringArm->SetRelativeRotation(FRotator(-15.f, 0.f, 0.f));
 
-	if (SK_CARDBOARD.Succeeded())
-	{
-		GetMesh()->SetSkeletalMesh(SK_CARDBOARD.Object);
-	}
+	static ConstructorHelpers::FObjectFinder<USkeletalMesh> SM_MESH(TEXT("/Game/InfinityBladeWarriors/Character/CompleteCharacters/SK_CharM_Warrior.SK_CharM_Warrior"));
+
+	if (SM_MESH.Succeeded())
+		GetMesh()->SetSkeletalMesh(SM_MESH.Object);
 
 	GetMesh()->SetAnimationMode(EAnimationMode::AnimationBlueprint);
 
-	static ConstructorHelpers::FClassFinder<UAnimInstance> WARRIOR_ANIM(TEXT("/Game/Book/Animations/WarriorAnimBlueprint.WarriorAnimBlueprint_C"));
-	if (WARRIOR_ANIM.Succeeded())
-		GetMesh()->SetAnimInstanceClass(WARRIOR_ANIM.Class);
+	static ConstructorHelpers::FClassFinder<UAnimInstance> WARRIROR_ANIM(TEXT("/Game/Book/Animations/WarriorAnimBlueprint.WarriorAnimBlueprint_C"));
 
-	SpringArm->TargetArmLength = 800.f;
-	SpringArm->SetRelativeRotation(FRotator(-45.f, 0.f, 0.f));
+	if (WARRIROR_ANIM.Succeeded())
+		GetMesh()->SetAnimInstanceClass(WARRIROR_ANIM.Class);
+
+	SpringArm->TargetArmLength = 800.0f;
+	SpringArm->SetRelativeRotation(FRotator(-45.0f, 0.0f, 0.0f));
+
 	SpringArm->bUsePawnControlRotation = false;
 	SpringArm->bInheritPitch = false;
 	SpringArm->bInheritRoll = false;
 	SpringArm->bInheritYaw = false;
 	SpringArm->bDoCollisionTest = false;
+	SpringArm->bEnableCameraLag = true;
 	bUseControllerRotationYaw = false;
 
 	GetCharacterMovement()->bOrientRotationToMovement = false;
 	GetCharacterMovement()->bUseControllerDesiredRotation = true;
-	GetCharacterMovement()->RotationRate = FRotator(0.f, 360.f, 0.f);
+	GetCharacterMovement()->RotationRate = FRotator(0.0f, 360.0f, 0.0f);
+	GetCharacterMovement()->JumpZVelocity = 800.f;
+
+
+	IsAttacking = false;
+
+	MaxCombo = 4;
+	AttackEndCompoState();
+
+	GetCapsuleComponent()->SetCollisionProfileName(TEXT("ABCharacter"));
+}
+
+void AABCharacter::AttackStartComboState()
+{
+	CanNextCombo = true;
+	IsComboInputOn = false;
+	ABCHECK(FMath::IsWithinInclusive<int32>(CurrentCombo, 0, MaxCombo - 1));
+	CurrentCombo = FMath::Clamp<int32>(CurrentCombo + 1, 1, MaxCombo);
+}
+
+void AABCharacter::AttackEndCompoState()
+{
+	IsComboInputOn = false;
+	CanNextCombo = false;
+	CurrentCombo = 0;
 }
 
 // Called when the game starts or when spawned
@@ -52,12 +80,70 @@ void AABCharacter::BeginPlay()
 	
 }
 
+void AABCharacter::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+	ABAnim = Cast<UABAnimInstance>(GetMesh()->GetAnimInstance());
+	ABCHECK(nullptr != ABAnim);
+
+	ABAnim->OnMontageEnded.AddDynamic(this, &AABCharacter::OnAttackMontageEnded);
+	
+	ABAnim->OnNextAttackCheck.AddLambda([this]() -> void
+	{
+		ABLOG(Warning, TEXT("OnNextAttackCheck"));
+		CanNextCombo = false;
+
+		if (IsComboInputOn)
+		{
+			AttackStartComboState();
+			ABAnim->JumpToAttackMontageSection(CurrentCombo);
+		}
+	});
+}
+
+void AABCharacter::UpDown(float delta)
+{
+	DirectionToMove.X = delta;
+	//AddMovementInput(GetActorForwardVector(), delta);
+}
+
+void AABCharacter::LeftRight(float delta)
+{
+	DirectionToMove.Y = delta;
+	//AddMovementInput(GetActorRightVector(), delta);
+}
+
+void AABCharacter::Attack()
+{
+	if (IsAttacking)
+	{
+		ABCHECK(FMath::IsWithinInclusive<int32>(CurrentCombo, 1, MaxCombo));
+		if (CanNextCombo)
+			IsComboInputOn = true;
+	}
+	else
+	{
+		ABCHECK(CurrentCombo == 0);
+		AttackStartComboState();
+		ABAnim->PlayAttackMontage();
+		ABAnim->JumpToAttackMontageSection(CurrentCombo);
+		IsAttacking = true;
+	}
+}
+
+void AABCharacter::OnAttackMontageEnded(UAnimMontage * Montage, bool bInterrupted)
+{
+	ABCHECK(IsAttacking);
+	ABCHECK(CurrentCombo > 0);
+	IsAttacking = false;
+	AttackEndCompoState();
+}
+
 // Called every frame
 void AABCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
-	if (DirectionToMove.SizeSquared() > 0.f)
+	if (DirectionToMove.SizeSquared() > 0.0f)
 	{
 		GetController()->SetControlRotation(FRotationMatrix::MakeFromX(DirectionToMove).Rotator());
 		AddMovementInput(DirectionToMove);
@@ -71,29 +157,7 @@ void AABCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 
 	PlayerInputComponent->BindAxis(TEXT("UpDown"), this, &AABCharacter::UpDown);
 	PlayerInputComponent->BindAxis(TEXT("LeftRight"), this, &AABCharacter::LeftRight);
-	PlayerInputComponent->BindAxis(TEXT("LookUp"), this, &AABCharacter::LookUp);
-	PlayerInputComponent->BindAxis(TEXT("Turn"), this, &AABCharacter::Turn);
+	PlayerInputComponent->BindAction(TEXT("Jump"), IE_Pressed, this, &AABCharacter::Jump);
+	PlayerInputComponent->BindAction(TEXT("Attack"), IE_Pressed, this, &AABCharacter::Attack);
 }
 
-void AABCharacter::UpDown(float NewAxisValue)
-{
-	//AddMovementInput(FRotationMatrix(GetControlRotation()).GetUnitAxis(EAxis::X), NewAxisValue);
-	DirectionToMove.X = NewAxisValue;
-}
-
-void AABCharacter::LeftRight(float NewAxisValue)
-{
-	//AddMovementInput(FRotationMatrix(GetControlRotation()).GetUnitAxis(EAxis::Y), NewAxisValue);
-	DirectionToMove.Y = NewAxisValue;
-}
-
-void AABCharacter::LookUp(float NewAxisValue)
-{
-	
-	//AddControllerPitchInput(NewAxisValue);
-}
-
-void AABCharacter::Turn(float NewAxisValue)
-{
-	//AddControllerYawInput(NewAxisValue);
-}

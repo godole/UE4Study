@@ -2,9 +2,8 @@
 
 
 #include "ABGameMode.h"
-#include "ABPlayerController.h"
-#include "ABPawn.h"
 #include "ABCharacter.h"
+#include "ABPlayerController.h"
 
 AABGameMode::AABGameMode()
 {
@@ -12,9 +11,10 @@ AABGameMode::AABGameMode()
 	PlayerControllerClass = AABPlayerController::StaticClass();
 }
 
-void AABGameMode::PostLogin(APlayerController* NewPlayer)
+void AABGameMode::PostLogin(APlayerController * NewPlayer)
 {
-	ABLOG(Warning, TEXT("Post Login Start"));
+	ABLOG(Warning, TEXT("Post Login Begin"));
 	Super::PostLogin(NewPlayer);
 	ABLOG(Warning, TEXT("Post Login End"));
+
 }

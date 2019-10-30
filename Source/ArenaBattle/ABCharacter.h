@@ -15,9 +15,49 @@ public:
 	// Sets default values for this character's properties
 	AABCharacter();
 
+	UPROPERTY(VisibleAnywhere, Category = Camera)
+	USpringArmComponent* SpringArm;
+
+	UPROPERTY(VisibleAnywhere, Category = Camera)
+	UCameraComponent* Camera;
+
+	UPROPERTY(VisibleAnywhere, Category = Movement)
+	FVector DirectionToMove;
+
+	void AttackStartComboState();
+	void AttackEndCompoState();
+
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+
+	virtual void PostInitializeComponents() override;
+
+	void UpDown(float delta);
+	void LeftRight(float delta);
+	void Attack();
+
+	UFUNCTION()
+	void OnAttackMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = Attack, Meta = (AllowPrivateAcess = true))
+	bool IsAttacking;
+
+	UPROPERTY(VisibleInstanceOnly, BluePrintReadOnly, Category = Attack, Meta = (AllowPrivateAcess = true))
+	bool CanNextCombo;
+
+	UPROPERTY(VisibleInstanceOnly, BluePrintReadOnly, Category = Attack, Meta = (AllowPrivateAcess = true))
+	bool IsComboInputOn;
+
+	UPROPERTY(VisibleInstanceOnly, BluePrintReadOnly, Category = Attack, Meta = (AllowPrivateAcess = true))
+	int32 CurrentCombo;
+
+	UPROPERTY(VisibleInstanceOnly, BluePrintReadOnly, Category = Attack, Meta = (AllowPrivateAcess = true))
+	int32 MaxCombo;
+
+	UPROPERTY()
+	class UABAnimInstance* ABAnim;
 
 public:	
 	// Called every frame
@@ -26,21 +66,4 @@ public:
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
-	void UpDown(float NewAxisValue);
-	void LeftRight(float NewAxisValue);
-
-	UPROPERTY(VisibleAnywhere, Category = Camera)
-	USpringArmComponent* SpringArm;
-
-	UPROPERTY(VisibleAnywhere, Category = Camera)
-	UCameraComponent* Camera;
-
-	UPROPERTY(VisibleAnywhere)
-	FVector DirectionToMove = FVector::ZeroVector;
-
-private :
-	void LookUp(float NewAxisValue);
-	void Turn(float NewAxisValue);
-
-	
 };
