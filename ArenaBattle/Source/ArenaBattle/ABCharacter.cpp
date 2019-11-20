@@ -214,6 +214,8 @@ void AABCharacter::OnAttackMontageEnded(UAnimMontage * Montage, bool bInterrupte
 	ABCHECK(CurrentCombo > 0);
 	IsAttacking = false;
 	AttackEndCompoState();
+
+	OnAttackEnd.Broadcast();
 }
 
 // Called every frame

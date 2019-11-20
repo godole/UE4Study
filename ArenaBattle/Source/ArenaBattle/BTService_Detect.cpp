@@ -3,7 +3,9 @@
 
 #include "BTService_Detect.h"
 #include "ABAIController.h"
+#include "ABCharacter.h"
 #include "BehaviorTree/BehaviorTreeComponent.h"
+#include "BehaviorTree/BlackboardComponent.h"
 #include "DrawDebugHelpers.h"
 
 
@@ -22,7 +24,7 @@ void UBTService_Detect::TickNode(UBehaviorTreeComponent & OwnerComp, uint8 * Nod
 	float DetectRadius = 600.0f;
 
 	TArray<FOverlapResult> OverlapResults;
-	FCollisionQueryParams CollisionQuerParams(NAME_None, false, ControllingPawn);
+	FCollisionQueryParams CollisionQueryParams(NAME_None, false, ControllingPawn);
 
 	bool bResult = World->OverlapMultiByChannel(
 		OverlapResults,
@@ -30,8 +32,23 @@ void UBTService_Detect::TickNode(UBehaviorTreeComponent & OwnerComp, uint8 * Nod
 		FQuat::Identity,
 		ECollisionChannel::ECC_GameTraceChannel2,
 		FCollisionShape::MakeSphere(DetectRadius),
-		CollisionQuerParams
+		CollisionQueryParams
 	);
 
-	DrawDebugSphere(World, Center, DetectRadius, 16, bResult ? FColor::Green : FColor::Red, false, 0.2f);
+	if (bResult)
+	{
+		for (auto const& OverlapResult : OverlapResults)
+		{
+			auto ABCharacter = Cast<AABCharacter>(OverlapResult.GetActor());
+			if (ABCharacter && ABCharacter->GetController()->IsPlayerController())
+			{
+				OwnerComp.GetBlackboardComponent()->SetValueAsObject(FName(TEXT("Target")), ABCharacter);
+				DrawDebugSphere(World, Center, DetectRadius, 16, FColor::Green, false, 0.2f);
+				return;
+			}
+		}
+		
+	}
+	OwnerComp.GetBlackboardComponent()->SetValueAsObject(FName(TEXT("Target")), nullptr);
+	DrawDebugSphere(World, Center, DetectRadius, 16, FColor::Red, false, 0.2f);
 }

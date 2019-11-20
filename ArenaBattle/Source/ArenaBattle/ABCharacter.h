@@ -7,6 +7,8 @@
 #include "DrawDebugHelpers.h"
 #include "ABCharacter.generated.h"
 
+DECLARE_MULTICAST_DELEGATE(FOnAttackEndDelegate);
+
 UCLASS()
 class ARENABATTLE_API AABCharacter : public ACharacter
 {
@@ -41,7 +43,6 @@ protected:
 
 	void UpDown(float delta);
 	void LeftRight(float delta);
-	void Attack();
 
 	UFUNCTION()
 	void OnAttackMontageEnded(UAnimMontage* Montage, bool bInterrupted);
@@ -79,4 +80,6 @@ public:
 
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
 
+	void Attack();
+	FOnAttackEndDelegate OnAttackEnd;
 };
